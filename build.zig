@@ -10,17 +10,15 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const gen_exe = b.addExecutable(.{
-        .name = "haversine",
+        .name = "gen_haversine",
         .root_module = gen_mod,
     });
     b.installArtifact(gen_exe);
 
-    const gen_run_cmd = b.addRunArtifact(gen_exe);
-    gen_run_cmd.step.dependOn(b.getInstallStep());
-
-    if (b.args) |args| {
-        gen_run_cmd.addArgs(args);
-    }
-    const gen_run_step = b.step("gen", "Generate json with haversine paths");
-    gen_run_step.dependOn(&gen_run_cmd.step);
+    const exe_check = b.addExecutable(.{
+        .name = "zls build check",
+        .root_module = gen_mod,
+    });
+    const check = b.step("check", "Check if gen_haversine compiles");
+    check.dependOn(&exe_check.step);
 }
