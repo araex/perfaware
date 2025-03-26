@@ -51,7 +51,6 @@ fn generate(out_pairs_writer: std.io.AnyWriter, out_distances_writer: std.io.Any
     const answers = answers_bw.writer();
 
     _ = try json.write("{\"pairs\": [\n");
-    defer _ = json.write("]}\n") catch {};
 
     var sum: f64 = 0;
     const sum_coef = 1.0 / @as(f64, @floatFromInt(num_pairs));
@@ -76,6 +75,7 @@ fn generate(out_pairs_writer: std.io.AnyWriter, out_distances_writer: std.io.Any
     }
     try answers.writeAll(std.mem.asBytes(&sum));
 
+    _ = try json.write("]}\n");
     try json_bw.flush();
     try answers_bw.flush();
 

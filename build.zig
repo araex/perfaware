@@ -20,17 +20,32 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(gen_exe);
 
-    // Processor executable
+    // Compute executable
     const compute_module = b.createModule(.{
         .root_source_file = b.path("src/compute/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    compute_module.addImport("haversine", lib_module);
     const compute_exe = b.addExecutable(.{
         .name = "compute_haversine",
         .root_module = compute_module,
     });
     b.installArtifact(compute_exe);
+
+    // Add tests for compute module
+    const compute_tests = b.addTest(.{
+        .root_source_file = b.path("src/compute/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    compute_tests.root_module.addImport("haversine", lib_module);
+
+    const run_compute_tests = b.addRunArtifact(compute_tests);
+
+    // Create a step for running compute tests
+    const test_step = b.step("test", "Run compute module tests");
+    test_step.dependOn(&run_compute_tests.step);
 
     // Check steps for both executables
     const check_generate = b.addExecutable(.{
