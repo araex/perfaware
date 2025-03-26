@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const haversine = @import("haversine.zig").haversine;
+const haversine = @import("haversine");
 
 const earth_radius = 6372.8;
 
@@ -66,7 +66,7 @@ fn generate(out_pairs_writer: std.io.AnyWriter, out_distances_writer: std.io.Any
         const y0 = rand.float(f64) * (cluster.y_max - cluster.y_min) + cluster.y_min;
         const x1 = rand.float(f64) * (cluster.x_max - cluster.x_min) + cluster.x_min;
         const y1 = rand.float(f64) * (cluster.y_max - cluster.y_min) + cluster.y_min;
-        const haversine_distance = haversine(x0, y0, x1, y1, earth_radius);
+        const haversine_distance = haversine.compute_reference(x0, y0, x1, y1, earth_radius);
 
         sum += sum_coef * haversine_distance;
 

@@ -6,7 +6,7 @@ const sqrt = @import("std").math.sqrt;
 const std = @import("std");
 
 // Reference implementation https://github.com/cmuratori/computer_enhance/blob/main/perfaware/part2/listing_0065_haversine_formula.cpp#L30
-pub fn haversine(x0: f64, y0: f64, x1: f64, y1: f64, earth_radius: f64) f64 {
+pub fn haversine_ref(x0: f64, y0: f64, x1: f64, y1: f64, earth_radius: f64) f64 {
     var lat1 = y0;
     var lat2 = y1;
     const lon1 = x0;
