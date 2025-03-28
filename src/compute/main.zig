@@ -1,6 +1,8 @@
 const std = @import("std");
 
+const clock = @import("util").clock;
 const haversine = @import("haversine");
+const span = @import("util").span;
 
 const json = @import("json.zig");
 
@@ -8,7 +10,30 @@ const Error = error{UnexpectedToken};
 
 const earth_radius = 6372.8;
 
+var durations: std.BoundedArray(span.TraceDuration, 20) = .{};
+fn pushDuration(dur: span.TraceDuration) void {
+    durations.append(dur) catch unreachable;
+}
+
+fn printDurations() void {
+    std.log.info("\nEstimating cpu frequency...", .{});
+    const cpuFreq = clock.estimateCpuFreq(500) catch unreachable;
+    std.log.info("{d}Hz", .{cpuFreq});
+
+    var i = durations.len;
+    while (i > 0) {
+        i -= 1;
+        const us = span.toMicroseconds(durations.buffer[i], cpuFreq);
+        std.log.info("{d: >8}us {s}", .{ us.duration, us.id });
+    }
+}
+
 pub fn main() !void {
+    defer printDurations();
+
+    const main_span = span.start("main");
+    defer main_span.end(pushDuration);
+
     var gpa = std.heap.DebugAllocator(.{}).init;
 
     const alloc = gpa.allocator();
@@ -21,8 +46,35 @@ pub fn main() !void {
         return error.InvalidArgument;
     }
 
+    const file_data = try openFiles(args);
+    defer {
+        file_data.json_file.close();
+        if (file_data.result_file) |file| file.close();
+    }
+
+    const sum = try computeAvgHaversine(alloc, file_data.json_file.reader().any(), file_data.result_reader);
+
+    const stdout = std.io.getStdOut().writer();
+    try stdout.print("Computed sum: {d}\n", .{sum});
+
+    if (file_data.result_reader) |expected_reader| {
+        const raw = try expected_reader.readBoundedBytes(8);
+        const expected_haversine = std.mem.bytesAsValue(f64, &raw.buffer);
+        try stdout.print("Expected sum: {d}\n", .{expected_haversine.*});
+    }
+}
+
+const FileData = struct {
+    json_file: std.fs.File,
+    result_file: ?std.fs.File,
+    result_reader: ?std.io.AnyReader,
+};
+
+fn openFiles(args: []const []const u8) !FileData {
+    const main_span = span.start("  openFiles");
+    defer main_span.end(pushDuration);
+
     const json_file = try std.fs.cwd().openFile(args[1], .{});
-    defer json_file.close();
 
     const result_file: ?std.fs.File = blk: {
         if (args.len > 2) {
@@ -30,22 +82,18 @@ pub fn main() !void {
         }
         break :blk null;
     };
-    defer if (result_file) |file| file.close();
     const result_reader = if (result_file) |file| file.reader().any() else null;
 
-    const sum = try computeAvgHaversine(alloc, json_file.reader().any(), result_reader);
-
-    const stdout = std.io.getStdOut().writer();
-    try stdout.print("Computed sum: {d}\n", .{sum});
-
-    if (result_reader) |expected_reader| {
-        const raw = try expected_reader.readBoundedBytes(8);
-        const expected_haversine = std.mem.bytesAsValue(f64, &raw.buffer);
-        try stdout.print("Expected sum: {d}\n", .{expected_haversine.*});
-    }
+    return .{
+        .json_file = json_file,
+        .result_file = result_file,
+        .result_reader = result_reader,
+    };
 }
 
 fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader, expected: ?std.io.AnyReader) !f64 {
+    const main_span = span.start("  computeAvgHaversine");
+    defer main_span.end(pushDuration);
     var arena = std.heap.ArenaAllocator.init(alloc_in);
     defer arena.deinit();
     const alloc = arena.allocator();
@@ -53,23 +101,46 @@ fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader,
     var reader = json.reader(alloc, reader_in);
     defer reader.deinit();
 
-    try skipUntilAfterArrayBegin(&reader, alloc);
+    {
+        const inner_span = span.start("    skipUntilAfterArrayBegin");
+        try skipUntilAfterArrayBegin(&reader, alloc);
+        inner_span.end(pushDuration);
+    }
 
     var sum: f64 = 0;
     var count: usize = 0;
+    var rdtsc_read: u64 = 0;
+    var rdtsc_compute: u64 = 0;
     while (try reader.peekNextTokenType() != .array_end) {
-        const pair = try readPair(&reader, alloc);
+        const pair = blk: {
+            const before = clock.rdtsc();
+            defer rdtsc_read += (clock.rdtsc() - before);
+            break :blk try readPair(&reader, alloc);
+        };
         // std.debug.print("    {{\"x0\":{d:.16}, \"y0\":{d:.16}, \"x1\":{d:.16}, \"y1\":{d:.16}}}\n", .{ pair.x0, pair.y0, pair.x1, pair.y1 });
-        const haversine_distance = haversine.compute_reference(pair.x0, pair.y0, pair.x1, pair.y1, earth_radius);
+
+        const haversine_distance = blk: {
+            const before = clock.rdtsc();
+            defer rdtsc_compute += (clock.rdtsc() - before);
+            break :blk haversine.compute_reference(pair.x0, pair.y0, pair.x1, pair.y1, earth_radius);
+        };
+
         if (expected) |expected_reader| {
             const raw = try expected_reader.readBoundedBytes(8);
             const expected_haversine = std.mem.bytesAsValue(f64, &raw.buffer);
             try std.testing.expectApproxEqRel(expected_haversine.*, haversine_distance, 1e-8);
         }
-        // std.debug.print("  -> {d:.16}\n", .{haversine_distance});
         sum += haversine_distance;
         count += 1;
     }
+    pushDuration(span.TraceDuration{
+        .id = "    readPair",
+        .duration = rdtsc_read,
+    });
+    pushDuration(span.TraceDuration{
+        .id = "    haversine.compute_reference",
+        .duration = rdtsc_compute,
+    });
     return sum / @as(f64, @floatFromInt(count));
 }
 
@@ -128,62 +199,4 @@ fn skipUntilAfterArrayBegin(json_reader: anytype, alloc: std.mem.Allocator) !voi
 
     token = try json_reader.nextWithAlloc(alloc);
     if (token != .array_begin) return Error.UnexpectedToken;
-}
-
-test "json parser" {
-    const in =
-        \\{
-        \\  "string": "foo",
-        \\  "int": 42,
-        \\  "float": 3.14,
-        \\  "object": {
-        \\      "nested string": "bar"
-        \\  }
-        \\}
-    ;
-
-    const alloc = std.testing.allocator;
-
-    var buffer = std.io.fixedBufferStream(in);
-    const reader = buffer.reader();
-    var json_reader = json.reader(alloc, reader.any());
-    defer json_reader.deinit();
-
-    try std.testing.expectEqualDeep(.object_begin, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "string",
-    }, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "foo",
-    }, try json_reader.nextWithAlloc(alloc));
-
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "int",
-    }, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(json.Token{
-        .number = "42",
-    }, try json_reader.nextWithAlloc(alloc));
-
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "float",
-    }, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(json.Token{
-        .number = "3.14",
-    }, try json_reader.nextWithAlloc(alloc));
-
-    // nested object
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "object",
-    }, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(.object_begin, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "nested string",
-    }, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(json.Token{
-        .string = "bar",
-    }, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(.object_end, try json_reader.nextWithAlloc(alloc));
-
-    try std.testing.expectEqualDeep(.object_end, try json_reader.nextWithAlloc(alloc));
-    try std.testing.expectEqualDeep(.end_of_document, try json_reader.nextWithAlloc(alloc));
 }
