@@ -42,7 +42,17 @@ pub fn build(b: *std.Build) void {
         .name = "compute_haversine",
         .root_module = compute_module,
     });
+    const build_compute = b.step("compute", "Build the compute executable");
+    build_compute.dependOn(&compute_exe.step);
+    build_compute.dependOn(b.getInstallStep());
+
     b.installArtifact(compute_exe);
+    const compute_run = b.addRunArtifact(compute_exe);
+    if (b.args) |args| {
+        compute_run.addArgs(args);
+    }
+    const compute_step = b.step("compute-run", "Build & run the compute executable");
+    compute_step.dependOn(&compute_run.step);
 
     // Add tests for compute module
     const util_tests = b.addTest(.{

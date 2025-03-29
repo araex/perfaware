@@ -1,0 +1,60 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "compute 10 pairs",
+            "type": "shell",
+            "command": "zig build --release=safe compute-run -- ${workspaceFolder}/haversine_pairs_10.json",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "compute 10'000'000 pairs",
+            "type": "shell",
+            "command": "zig build --release=safe compute-run -- ${workspaceFolder}/haversine_pairs_10000000.json",
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "tests",
+            "type": "shell",
+            "command": "zig build test",
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            }
+        },
+        {
+            "label": "build dbg",
+            "type": "shell",
+            "command": "zig build compute",
+            "group": "none",
+            "hide": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "debug",
+            "type": "shell",
+            "command": "..\\raddbg\\raddbg.exe",
+            "args": [],
+            "group": "build",
+            "dependsOn": [
+                "build dbg"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        }
+    ],
+}
