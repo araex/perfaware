@@ -2,7 +2,7 @@ const std = @import("std");
 
 const clock = @import("util").clock;
 const haversine = @import("haversine");
-const span = @import("util").span;
+const profile = @import("util").profile;
 
 const json = @import("json.zig");
 
@@ -10,29 +10,11 @@ const Error = error{UnexpectedToken};
 
 const earth_radius = 6372.8;
 
-var durations: std.BoundedArray(span.TraceDuration, 20) = .{};
-fn pushDuration(dur: span.TraceDuration) void {
-    durations.append(dur) catch unreachable;
-}
-
-fn printDurations() void {
-    std.log.info("\nEstimating cpu frequency...", .{});
-    const cpuFreq = clock.estimateCpuFreq(500) catch unreachable;
-    std.log.info("{d}Hz", .{cpuFreq});
-
-    var i = durations.len;
-    while (i > 0) {
-        i -= 1;
-        const us = span.toMicroseconds(durations.buffer[i], cpuFreq);
-        std.log.info("{d: >8}us {s}", .{ us.duration, us.id });
-    }
-}
-
 pub fn main() !void {
-    defer printDurations();
+    defer profile.logSummary();
 
-    const main_span = span.start("main");
-    defer main_span.end(pushDuration);
+    var span = profile.timeFunction(@src());
+    defer span.deinit();
 
     var gpa = std.heap.DebugAllocator(.{}).init;
 
@@ -71,8 +53,8 @@ const FileData = struct {
 };
 
 fn openFiles(args: []const []const u8) !FileData {
-    const main_span = span.start("  openFiles");
-    defer main_span.end(pushDuration);
+    var span = profile.timeFunction(@src());
+    defer span.deinit();
 
     const json_file = try std.fs.cwd().openFile(args[1], .{});
 
@@ -92,8 +74,9 @@ fn openFiles(args: []const []const u8) !FileData {
 }
 
 fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader, expected: ?std.io.AnyReader) !f64 {
-    const main_span = span.start("  computeAvgHaversine");
-    defer main_span.end(pushDuration);
+    var span = profile.timeFunction(@src());
+    defer span.deinit();
+
     var arena = std.heap.ArenaAllocator.init(alloc_in);
     defer arena.deinit();
     const alloc = arena.allocator();
@@ -101,27 +84,25 @@ fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader,
     var reader = json.reader(alloc, reader_in);
     defer reader.deinit();
 
-    {
-        const inner_span = span.start("    skipUntilAfterArrayBegin");
-        try skipUntilAfterArrayBegin(&reader, alloc);
-        inner_span.end(pushDuration);
-    }
+    try skipUntilAfterArrayBegin(&reader, alloc);
 
     var sum: f64 = 0;
     var count: usize = 0;
-    var rdtsc_read: u64 = 0;
-    var rdtsc_compute: u64 = 0;
+    var span_read = profile.pausedSpan(@src(), "read pair from json");
+    defer span_read.deinit();
+    var span_compute = profile.pausedSpan(@src(), "compute haversine");
+    defer span_compute.deinit();
     while (try reader.peekNextTokenType() != .array_end) {
         const pair = blk: {
-            const before = clock.rdtsc();
-            defer rdtsc_read += (clock.rdtsc() - before);
+            span_read.start();
+            defer span_read.pause();
             break :blk try readPair(&reader, alloc);
         };
         // std.debug.print("    {{\"x0\":{d:.16}, \"y0\":{d:.16}, \"x1\":{d:.16}, \"y1\":{d:.16}}}\n", .{ pair.x0, pair.y0, pair.x1, pair.y1 });
 
         const haversine_distance = blk: {
-            const before = clock.rdtsc();
-            defer rdtsc_compute += (clock.rdtsc() - before);
+            span_compute.start();
+            defer span_compute.pause();
             break :blk haversine.compute_reference(pair.x0, pair.y0, pair.x1, pair.y1, earth_radius);
         };
 
@@ -133,14 +114,6 @@ fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader,
         sum += haversine_distance;
         count += 1;
     }
-    pushDuration(span.TraceDuration{
-        .id = "    readPair",
-        .duration = rdtsc_read,
-    });
-    pushDuration(span.TraceDuration{
-        .id = "    haversine.compute_reference",
-        .duration = rdtsc_compute,
-    });
     return sum / @as(f64, @floatFromInt(count));
 }
 
@@ -192,6 +165,9 @@ fn readF64(json_reader: anytype, alloc: std.mem.Allocator) !f64 {
 }
 
 fn skipUntilAfterArrayBegin(json_reader: anytype, alloc: std.mem.Allocator) !void {
+    var span = profile.timeFunction(@src());
+    defer span.deinit();
+
     var token = try json_reader.nextWithAlloc(alloc);
     if (token != .object_begin) return Error.UnexpectedToken;
 

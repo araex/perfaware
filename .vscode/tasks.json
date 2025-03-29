@@ -4,7 +4,7 @@
         {
             "label": "compute 10 pairs",
             "type": "shell",
-            "command": "zig build --release=safe compute-run -- ${workspaceFolder}/haversine_pairs_10.json",
+            "command": "zig build compute-run -- ${workspaceFolder}/haversine_pairs_10.json",
             "group": "build",
             "presentation": {
                 "reveal": "always",
