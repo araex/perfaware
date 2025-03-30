@@ -11,14 +11,12 @@ const Error = error{UnexpectedToken};
 const earth_radius = 6372.8;
 
 pub fn main() !void {
-    defer profile.logSummary();
-
-    var span = profile.timeFunction(@src());
-    defer span.deinit();
-
     var gpa = std.heap.DebugAllocator(.{}).init;
-
     const alloc = gpa.allocator();
+    var profile_arena = std.heap.ArenaAllocator.init(alloc);
+    defer profile_arena.deinit();
+
+    try profile.begin(profile_arena.allocator(), @src());
 
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
@@ -44,6 +42,8 @@ pub fn main() !void {
         const expected_haversine = std.mem.bytesAsValue(f64, &raw.buffer);
         try stdout.print("Expected sum: {d}\n", .{expected_haversine.*});
     }
+
+    try profile.endAndPrintSummary();
 }
 
 const FileData = struct {
@@ -53,12 +53,18 @@ const FileData = struct {
 };
 
 fn openFiles(args: []const []const u8) !FileData {
-    var span = profile.timeFunction(@src());
-    defer span.deinit();
+    var span = try profile.timeFunction(@src());
+    defer span.end();
 
-    const json_file = try std.fs.cwd().openFile(args[1], .{});
+    const json_file = blk: {
+        var span_inner = try profile.timeBlock(@src(), "openFile(json)");
+        defer span_inner.end();
+        break :blk try std.fs.cwd().openFile(args[1], .{});
+    };
 
     const result_file: ?std.fs.File = blk: {
+        var span_inner = try profile.timeBlock(@src(), "openFile(result)");
+        defer span_inner.end();
         if (args.len > 2) {
             break :blk try std.fs.cwd().openFile(args[2], .{});
         }
@@ -74,8 +80,8 @@ fn openFiles(args: []const []const u8) !FileData {
 }
 
 fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader, expected: ?std.io.AnyReader) !f64 {
-    var span = profile.timeFunction(@src());
-    defer span.deinit();
+    var span = try profile.timeFunction(@src());
+    defer span.end();
 
     var arena = std.heap.ArenaAllocator.init(alloc_in);
     defer arena.deinit();
@@ -88,21 +94,18 @@ fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader,
 
     var sum: f64 = 0;
     var count: usize = 0;
-    var span_read = profile.pausedSpan(@src(), "read pair from json");
-    defer span_read.deinit();
-    var span_compute = profile.pausedSpan(@src(), "compute haversine");
-    defer span_compute.deinit();
+
     while (try reader.peekNextTokenType() != .array_end) {
         const pair = blk: {
-            span_read.start();
-            defer span_read.pause();
+            var span_read = try profile.timeBlock(@src(), "read pair from json");
+            defer span_read.end();
             break :blk try readPair(&reader, alloc);
         };
         // std.debug.print("    {{\"x0\":{d:.16}, \"y0\":{d:.16}, \"x1\":{d:.16}, \"y1\":{d:.16}}}\n", .{ pair.x0, pair.y0, pair.x1, pair.y1 });
 
         const haversine_distance = blk: {
-            span_compute.start();
-            defer span_compute.pause();
+            var span_compute = try profile.timeBlock(@src(), "compute haversine");
+            defer span_compute.end();
             break :blk haversine.compute_reference(pair.x0, pair.y0, pair.x1, pair.y1, earth_radius);
         };
 
@@ -165,8 +168,8 @@ fn readF64(json_reader: anytype, alloc: std.mem.Allocator) !f64 {
 }
 
 fn skipUntilAfterArrayBegin(json_reader: anytype, alloc: std.mem.Allocator) !void {
-    var span = profile.timeFunction(@src());
-    defer span.deinit();
+    var span = try profile.timeFunction(@src());
+    defer span.end();
 
     var token = try json_reader.nextWithAlloc(alloc);
     if (token != .object_begin) return Error.UnexpectedToken;
