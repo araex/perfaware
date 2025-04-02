@@ -34,3 +34,11 @@ pub fn rdtsc() u64 {
     );
     return (hi << 32) | lo;
 }
+
+pub fn toSeconds(cpu_time: u64, cpu_freq: u64) f64 {
+    return @as(f64, @floatFromInt(cpu_time)) / @as(f64, @floatFromInt(cpu_freq));
+}
+
+pub fn toMilliseconds(cpu_time: u64, cpu_freq: u64) f64 {
+    return toSeconds(cpu_time, cpu_freq) * std.time.ms_per_s;
+}

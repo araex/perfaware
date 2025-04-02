@@ -3,6 +3,7 @@ const root = @import("root");
 
 pub const clock = @import("clock.zig");
 pub const Profiler = @import("profiler.zig").Profiler;
+pub const RepetitionTester = @import("RepetitionTester.zig");
 
 // Profiler that only measures total execution time. Can be used to turn off profiling completely at compiletime
 pub fn ProfilerNoop(comptime blocks: anytype) type {

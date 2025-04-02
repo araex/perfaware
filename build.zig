@@ -54,6 +54,24 @@ pub fn build(b: *std.Build) void {
     const compute_step = b.step("compute-run", "Build & run the compute executable");
     compute_step.dependOn(&compute_run.step);
 
+    // Repetition test executable
+    const reptest_module = b.createModule(.{
+        .root_source_file = b.path("src/compute/main_reptest.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    reptest_module.addImport("util", lib_util);
+    reptest_module.addImport("haversine", lib_haversine);
+    const reptest_exe = b.addExecutable(.{
+        .name = "reptest",
+        .root_module = reptest_module,
+    });
+    const reptest_run = b.addRunArtifact(reptest_exe);
+    const reptest_run_step = b.step("reptest", "Build & run the repetition test exe");
+    // reptest_run.dependOn(reptest_exe);
+    // reptest_run.dependOn(b.getInstallStep());
+    reptest_run_step.dependOn(&reptest_run.step);
+
     // Add tests for compute module
     const util_tests = b.addTest(.{
         .root_source_file = b.path("src/util/root.zig"),

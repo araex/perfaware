@@ -154,8 +154,8 @@ pub fn logSummary(comptime block_type: anytype, profiler: *const Profiler(block_
             if (anchor.processed_bytes_exclusive != 0) {
                 const processed_mb = @as(f64, @floatFromInt(anchor.processed_bytes_exclusive)) / (1024.0 * 1024.0);
                 const elapsed_inclusive_s = @as(f64, @floatFromInt(anchor.elapsed_inclusive)) / @as(f64, @floatFromInt(cpuFreq));
-                const gb_per_s = 1.0 / (processed_mb / 1024.0) * elapsed_inclusive_s;
-                try writer.print(" " ** (8 + max_block_name_width) ++ "{d:.3}MB @ {d:.3}GB/s\n", .{ processed_mb, gb_per_s });
+                const gbps = (processed_mb / 1024.0) / elapsed_inclusive_s;
+                try writer.print(" " ** (8 + max_block_name_width) ++ "{d:.3}MB @ {d:.3}GB/s\n", .{ processed_mb, gbps });
             }
 
             try bw.flush();
