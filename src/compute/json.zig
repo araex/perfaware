@@ -59,6 +59,7 @@ pub fn Reader(comptime buffer_size: usize, comptime ReaderType: type) type {
         reader: ReaderType,
 
         buffer: [buffer_size]u8 = undefined,
+        bytes_read_to_buffer: u64 = 0,
 
         pub const NextError = ReaderType.Error || Error || std.mem.Allocator.Error;
         pub const SkipError = NextError;
@@ -75,6 +76,11 @@ pub fn Reader(comptime buffer_size: usize, comptime ReaderType: type) type {
         pub fn deinit(self: *@This()) void {
             self.scanner.deinit();
             self.* = undefined;
+        }
+
+        /// Returns the current total bytes read: sum of buffer fills and scanner progress.
+        pub fn bytesRead(self: *@This()) u64 {
+            return self.bytes_read_to_buffer + self.scanner.cursor;
         }
 
         // Returns the next token. Allocates if necessary. If it allocated, returns
@@ -148,6 +154,7 @@ pub fn Reader(comptime buffer_size: usize, comptime ReaderType: type) type {
         }
 
         fn refillBuffer(self: *@This()) ReaderType.Error!void {
+            self.bytes_read_to_buffer += self.scanner.cursor;
             const input = self.buffer[0..try self.reader.read(self.buffer[0..])];
             if (input.len > 0) {
                 self.scanner.feedInput(input);

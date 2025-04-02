@@ -103,14 +103,14 @@ fn computeAvgHaversine(alloc_in: std.mem.Allocator, reader_in: std.io.AnyReader,
     while (try reader.peekNextTokenType() != .array_end) {
         const pair = blk: {
             var span_read = profiler.timeBlock(.compute_read_pair_from_json);
-            defer span_read.end();
+            const bytes_before = reader.bytesRead();
+            defer span_read.endWithThroughput(reader.bytesRead() - bytes_before);
             break :blk try readPair(&reader, alloc);
         };
-        // std.debug.print("    {{\"x0\":{d:.16}, \"y0\":{d:.16}, \"x1\":{d:.16}, \"y1\":{d:.16}}}\n", .{ pair.x0, pair.y0, pair.x1, pair.y1 });
 
         const haversine_distance = blk: {
             var span_compute = profiler.timeBlock(.compute_haversine);
-            defer span_compute.end();
+            defer span_compute.endWithThroughput(@sizeOf(Pair));
             break :blk haversine.compute_reference(pair.x0, pair.y0, pair.x1, pair.y1, earth_radius);
         };
 

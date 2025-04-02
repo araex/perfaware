@@ -10,6 +10,7 @@ pub fn Profiler(comptime blocks: anytype) type {
         const AnchorData = struct {
             elapsed_exclusive: i64 = 0, // NOT including children
             elapsed_inclusive: u64 = 0, // including children
+            processed_bytes_exclusive: u64 = 0,
             hits: u64 = 0,
         };
         pub const SpanScoped = struct {
@@ -21,8 +22,15 @@ pub fn Profiler(comptime blocks: anytype) type {
 
             profiler: *ProfilerType,
 
+            processed_bytes: u64 = 0,
+
             pub fn end(self: @This()) void {
                 self.profiler.pop(self);
+            }
+
+            pub fn endWithThroughput(self: *@This(), bytes: u64) void {
+                self.processed_bytes = bytes;
+                self.end();
             }
         };
 
@@ -80,6 +88,7 @@ pub fn Profiler(comptime blocks: anytype) type {
             self.anchors[block].elapsed_exclusive += @intCast(elapsed);
             self.anchors[block].elapsed_inclusive = @intCast(to_pop.old_elapsed_inclusive + elapsed);
             self.anchors[block].hits += 1;
+            self.anchors[block].processed_bytes_exclusive += to_pop.processed_bytes;
 
             self.active_block = to_pop.parent_block;
         }
@@ -141,6 +150,14 @@ pub fn logSummary(comptime block_type: anytype, profiler: *const Profiler(block_
                 });
             }
             try writer.print(")\n", .{});
+
+            if (anchor.processed_bytes_exclusive != 0) {
+                const processed_mb = @as(f64, @floatFromInt(anchor.processed_bytes_exclusive)) / (1024.0 * 1024.0);
+                const elapsed_inclusive_s = @as(f64, @floatFromInt(anchor.elapsed_inclusive)) / @as(f64, @floatFromInt(cpuFreq));
+                const gb_per_s = 1.0 / (processed_mb / 1024.0) * elapsed_inclusive_s;
+                try writer.print(" " ** (8 + max_block_name_width) ++ "{d:.3}MB @ {d:.3}GB/s\n", .{ processed_mb, gb_per_s });
+            }
+
             try bw.flush();
         }
     }
