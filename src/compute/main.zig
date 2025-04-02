@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const clock = @import("util").clock;
 const haversine = @import("haversine");
+const util = @import("util");
 
 const json = @import("json.zig");
 
@@ -16,7 +16,11 @@ const Blocks = enum {
     compute_read_pair_from_json,
     compute_haversine,
 };
-var profiler = @import("util").Profiler(Blocks).init(.main);
+const enable_profiling = true;
+var profiler = if (enable_profiling)
+    util.Profiler(Blocks).init(.main)
+else
+    util.ProfilerNoop(Blocks).init(.main);
 
 pub fn main() !void {
     profiler.begin();
