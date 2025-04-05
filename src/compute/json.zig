@@ -182,6 +182,14 @@ pub const Scanner = struct {
         };
     }
 
+    pub fn initCompleteInput(alloc: std.mem.Allocator, complete_input: []const u8) @This() {
+        return .{
+            .stack = std.BitStack.init(alloc),
+            .input = complete_input,
+            .is_end_of_input = true,
+        };
+    }
+
     pub fn deinit(self: *@This()) void {
         self.stack.deinit();
         self.* = undefined;
