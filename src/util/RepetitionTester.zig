@@ -1,13 +1,41 @@
 const std = @import("std");
 
 const clock = @import("clock.zig");
+const platform = @import("platform.zig");
 
 const RepititionTester = @This();
 
 pub const Result = struct {
-    min: u64 = std.math.maxInt(u64),
-    max: u64 = 0,
-    byte_count: ?u64 = null,
+    fastest_run: ?Run = null,
+    slowest_run: ?Run = null,
+};
+
+const Run = struct {
+    cpu_freq: u64,
+    cpu_time: u64 = 0,
+    page_faults: u32 = 0,
+    byte_count: u64 = 0,
+    begin_time_calls: u32 = 0,
+    end_time_calls: u32 = 0,
+
+    pub fn format(
+        self: @This(),
+        comptime fmt: []const u8,
+        options: std.fmt.FormatOptions,
+        writer: anytype,
+    ) !void {
+        _ = fmt;
+        _ = options;
+
+        const millis = clock.toMilliseconds(self.cpu_time, self.cpu_freq);
+        try writer.print("{d:.2}ms", .{millis});
+        if (self.byte_count > 0) {
+            const mb = @as(f64, @floatFromInt(self.byte_count)) / (1024.0 * 1024.0);
+            const gb = mb / 1024.0;
+            const gbps = gb / (millis / 1000.0);
+            try writer.print(", {d:.3}MB @ {d:.3}GB/s, {d} page faults", .{ mb, gbps, self.page_faults });
+        }
+    }
 };
 
 const State = enum {
@@ -19,10 +47,7 @@ start_time: std.time.Instant,
 try_for_s: u64,
 
 state: State,
-curr_iter_cpu_time: u64 = 0,
-curr_iter_byte_count: ?u64 = null,
-curr_begin_time_calls: u32 = 0,
-curr_end_time_calls: u32 = 0,
+run: Run,
 
 result: Result = .{},
 cpu_freq: u64,
@@ -32,12 +57,18 @@ pub fn init(cpu_freq: u64, try_for_s: u64) !@This() {
         .start_time = try std.time.Instant.now(),
         .try_for_s = try_for_s,
         .state = .testing,
+        .run = Run{
+            .cpu_freq = cpu_freq,
+        },
         .cpu_freq = cpu_freq,
     };
 }
 
 pub fn restart(self: *@This()) void {
     self.state = .testing;
+    self.run = .{
+        .cpu_freq = self.cpu_freq,
+    };
     self.start_time = std.time.Instant.now() catch unreachable;
 }
 
@@ -45,40 +76,44 @@ pub fn continueTesting(self: *@This()) bool {
     switch (self.state) {
         .done => return false,
         .testing => {
-            if (self.curr_begin_time_calls == 0) {
+            const last_run = self.run;
+            self.run = .{
+                .cpu_freq = self.cpu_freq,
+            };
+
+            if (last_run.begin_time_calls == 0) {
                 return true;
             }
 
-            if (self.curr_begin_time_calls != self.curr_end_time_calls) {
+            if (last_run.begin_time_calls != last_run.end_time_calls) {
                 @panic("unbalanced begin / end calls");
             }
 
-            if (self.curr_iter_byte_count != null and self.result.byte_count == null) {
-                // First iteration
-                self.result.byte_count = self.curr_iter_byte_count;
-            } else if (self.curr_iter_byte_count != self.result.byte_count) {
-                std.debug.print("{any} vs {any}", .{ self.curr_iter_byte_count, self.result.byte_count });
+            const is_first_iteration = self.result.fastest_run == null;
+            if (is_first_iteration) {
+                self.result.fastest_run = last_run;
+                self.result.slowest_run = last_run;
+                return true;
+            }
+
+            const fastest = self.result.slowest_run orelse unreachable;
+            const slowest = self.result.fastest_run orelse unreachable;
+            std.debug.assert(fastest.byte_count == slowest.byte_count);
+
+            if (last_run.byte_count != fastest.byte_count) {
+                std.debug.print("{any} vs {any}", .{ last_run.byte_count, fastest.byte_count });
                 @panic("Byte count changed between iterations. Can't compare.");
             }
 
-            var found_new_best: bool = false;
-            self.result.max = @max(self.result.max, self.curr_iter_cpu_time);
-            if (self.curr_iter_cpu_time < self.result.min) {
-                found_new_best = true;
-                self.result.min = self.curr_iter_cpu_time;
-                self.start_time = std.time.Instant.now() catch unreachable;
-            }
-
-            self.curr_iter_cpu_time = 0;
-            self.curr_iter_byte_count = null;
-            self.curr_begin_time_calls = 0;
-            self.curr_end_time_calls = 0;
-
-            if (found_new_best) {
-                self.updateMin();
-            }
-
             const now = std.time.Instant.now() catch unreachable;
+            if (last_run.cpu_time > slowest.cpu_time) {
+                self.result.slowest_run = last_run;
+            } else if (last_run.cpu_time < fastest.cpu_time) {
+                self.result.fastest_run = last_run;
+                self.start_time = now;
+                self.updateMinPrint();
+            }
+
             if (now.since(self.start_time) / std.time.ns_per_s > self.try_for_s) {
                 self.state = .done;
                 std.debug.print("\r", .{});
@@ -93,44 +128,38 @@ pub fn continueTesting(self: *@This()) bool {
 
 pub const ScopedTime = struct {
     ts_start: u64,
+    page_faults_start: u32,
     tester: *RepititionTester,
 
-    pub fn end(self: *@This()) void {
+    pub fn end(self: *@This()) !void {
         const now = clock.rdtsc();
-        self.tester.curr_iter_cpu_time = now - self.ts_start;
-        self.tester.curr_end_time_calls += 1;
+        const page_faults_end = try platform.readPageFaultCount();
+        self.tester.run.cpu_time = now - self.ts_start;
+        self.tester.run.page_faults += (page_faults_end - self.page_faults_start);
+        self.tester.run.end_time_calls += 1;
     }
 };
 
-pub fn beginTime(self: *@This()) ScopedTime {
-    self.curr_begin_time_calls += 1;
+pub fn beginTime(self: *@This()) !ScopedTime {
+    self.run.begin_time_calls += 1;
     return .{
         .ts_start = clock.rdtsc(),
+        .page_faults_start = try platform.readPageFaultCount(),
         .tester = self,
     };
 }
 
 pub fn countBytes(self: *@This(), byte_count: u64) void {
-    self.curr_iter_byte_count = byte_count;
+    self.run.byte_count += byte_count;
 }
 
-fn printCPUTime(prefix: []const u8, val: u64, byte_count: ?u64, cpu_freq: u64) void {
-    const millis = clock.toMilliseconds(val, cpu_freq);
-    std.debug.print("{s}{d:.2}ms", .{ prefix, millis });
-    if (byte_count) |b| {
-        const mb = @as(f64, @floatFromInt(b)) / (1024.0 * 1024.0);
-        const gb = mb / 1024.0;
-        const gbps = gb / (millis / 1000.0);
-        std.debug.print(", {d:.3}MB @ {d:.3}GB/s", .{ mb, gbps });
-    }
-}
-
-fn updateMin(self: @This()) void {
-    printCPUTime("\r Min: ", self.result.min, self.result.byte_count, self.cpu_freq);
+fn updateMinPrint(self: @This()) void {
+    std.debug.print("                                                                \r", .{});
+    std.debug.print(" Min: {any}", .{self.result.fastest_run});
 }
 
 fn printResults(self: @This()) void {
-    printCPUTime(" Min: ", self.result.min, self.result.byte_count, self.cpu_freq);
-    printCPUTime("\n Max: ", self.result.max, self.result.byte_count, self.cpu_freq);
-    std.debug.print("\n", .{});
+    std.debug.print("                                                                \r", .{});
+    std.debug.print(" Min: {any}\n", .{self.result.fastest_run});
+    std.debug.print(" Max: {any}\n", .{self.result.slowest_run});
 }
