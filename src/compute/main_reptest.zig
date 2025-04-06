@@ -29,20 +29,30 @@ pub fn main() !void {
     defer arena.deinit();
 
     var cases = [_]Case{
+        // .{
+        //     .name = "json_reader buffered 4096",
+        //     .tester = try Tester.init(cpu_freq, seconds_to_try),
+        //     .func = &caseReadBuffered4096,
+        // },
+        // .{
+        //     .name = "json_reader buffered 16384",
+        //     .tester = try Tester.init(cpu_freq, seconds_to_try),
+        //     .func = &caseReadBuffered16384,
+        // },
+        // .{
+        //     .name = "json_reader read whole file first",
+        //     .tester = try Tester.init(cpu_freq, seconds_to_try),
+        //     .func = &caseReadFullFile,
+        // },
         .{
-            .name = "json_reader buffered 4096",
+            .name = "alloc & write 1GB forwards",
             .tester = try Tester.init(cpu_freq, seconds_to_try),
-            .func = &caseReadBuffered4096,
+            .func = &caseWrite1GBForwards,
         },
         .{
-            .name = "json_reader buffered 16384",
+            .name = "alloc & write 1GB backwards",
             .tester = try Tester.init(cpu_freq, seconds_to_try),
-            .func = &caseReadBuffered16384,
-        },
-        .{
-            .name = "json_reader read whole file first",
-            .tester = try Tester.init(cpu_freq, seconds_to_try),
-            .func = &caseReadFullFile,
+            .func = &caseWrite1GBBackwards,
         },
     };
 
@@ -75,6 +85,14 @@ fn caseReadBuffered16384(tester: *Tester, alloc: std.mem.Allocator) void {
 
 fn caseReadFullFile(tester: *Tester, alloc: std.mem.Allocator) void {
     testReaderBufferFullFile(tester, alloc) catch @panic("wtf?");
+}
+
+fn caseWrite1GBForwards(tester: *Tester, alloc: std.mem.Allocator) void {
+    testWriteToAllBytes(tester, alloc, 1024 * 1024 * 1024, true) catch @panic("wtf?");
+}
+
+fn caseWrite1GBBackwards(tester: *Tester, alloc: std.mem.Allocator) void {
+    testWriteToAllBytes(tester, alloc, 1024 * 1024 * 1024, false) catch @panic("wtf?");
 }
 
 fn testReadBuffered(size: comptime_int, tester: *Tester, alloc: std.mem.Allocator) !void {
@@ -110,6 +128,24 @@ fn testReaderBufferFullFile(tester: *Tester, alloc: std.mem.Allocator) !void {
         while (try scanner.next() != .end_of_document) {}
 
         tester.countBytes(file_content.len);
+        try timer.end();
+    }
+}
+
+fn testWriteToAllBytes(tester: *Tester, alloc: std.mem.Allocator, n: usize, forward: bool) !void {
+    tester.restart();
+    while (tester.continueTesting()) {
+        var timer = try tester.beginTime();
+
+        const data = try alloc.alloc(u8, n);
+        defer alloc.free(data);
+
+        for (0..data.len) |i| {
+            const idx = if (forward) i else (data.len - 1 - i);
+            data[idx] = @truncate(@mod(i, @sizeOf(u8)));
+        }
+
+        tester.countBytes(n);
         try timer.end();
     }
 }
