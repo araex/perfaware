@@ -21,7 +21,7 @@ pub fn main() !void {
 
     for (0..10) |i| {
         const alloc_for_this_loop = blk: {
-            if (@mod(i, 2) == 0) {
+            if (@mod(i, 2) == 1) {
                 std.debug.print("== using arena allocator\n", .{});
                 _ = arena.reset(.retain_capacity);
                 break :blk arena.allocator();
@@ -77,13 +77,7 @@ fn testReaderBufferFullFile(
     while (tester.continueTesting()) {
         var timer = try tester.beginTime();
 
-        const file_size = blk: {
-            const file = try std.fs.cwd().openFile(json_file_name, .{});
-            defer file.close();
-            break :blk try file.getEndPos();
-        };
-
-        const file_content = try std.fs.cwd().readFileAlloc(alloc, json_file_name, file_size);
+        const file_content = try std.fs.cwd().readFileAlloc(alloc, json_file_name, std.math.maxInt(usize));
         defer alloc.free(file_content);
 
         var scanner = json.Scanner.initCompleteInput(alloc, file_content);

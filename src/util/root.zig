@@ -2,6 +2,7 @@ const std = @import("std");
 const root = @import("root");
 
 pub const clock = @import("clock.zig");
+pub const platform = @import("platform.zig");
 pub const Profiler = @import("profiler.zig").Profiler;
 pub const RepetitionTester = @import("RepetitionTester.zig");
 

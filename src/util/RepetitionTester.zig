@@ -30,10 +30,15 @@ const Run = struct {
         const millis = clock.toMilliseconds(self.cpu_time, self.cpu_freq);
         try writer.print("{d:.2}ms", .{millis});
         if (self.byte_count > 0) {
-            const mb = @as(f64, @floatFromInt(self.byte_count)) / (1024.0 * 1024.0);
+            const kb = @as(f64, @floatFromInt(self.byte_count)) / 1024.0;
+            const mb = kb / 1024.0;
             const gb = mb / 1024.0;
             const gbps = gb / (millis / 1000.0);
             try writer.print(", {d:.3}MB @ {d:.3}GB/s, {d} page faults", .{ mb, gbps, self.page_faults });
+            if (self.page_faults > 0) {
+                const kbppf = kb / @as(f64, @floatFromInt(self.page_faults));
+                try writer.print(" @ {d:.3}KB per page fault", .{kbppf});
+            }
         }
     }
 };

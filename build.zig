@@ -68,9 +68,22 @@ pub fn build(b: *std.Build) void {
     });
     const reptest_run = b.addRunArtifact(reptest_exe);
     const reptest_run_step = b.step("reptest", "Build & run the repetition test exe");
-    // reptest_run.dependOn(reptest_exe);
-    // reptest_run.dependOn(b.getInstallStep());
     reptest_run_step.dependOn(&reptest_run.step);
+
+    // Repetition test executable
+    const pagefault_mod = b.createModule(.{
+        .root_source_file = b.path("src/pagefault/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    pagefault_mod.addImport("util", lib_util);
+    const pagefault_exe = b.addExecutable(.{
+        .name = "reptest",
+        .root_module = pagefault_mod,
+    });
+    const pagefault_run = b.addRunArtifact(pagefault_exe);
+    const pagefault_run_step = b.step("pagefault", "Build & run the pagefault testing exe");
+    pagefault_run_step.dependOn(&pagefault_run.step);
 
     // Add tests for compute module
     const util_tests = b.addTest(.{
