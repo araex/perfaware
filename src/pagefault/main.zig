@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const platform = @import("util").platform;
+const x64 = @import("util").x64;
 
 const forward = true;
 const assumed_page_size = 4096;
