@@ -8,9 +8,18 @@ const json = @import("json.zig");
 const seconds_to_try = 10;
 const json_file_name = "haversine_pairs_10000000.json";
 
+const Case = struct {
+    name: []const u8,
+    tester: Tester,
+    func: *const fn (*Tester, std.mem.Allocator) void,
+
+    fn run(self: *@This(), alloc: std.mem.Allocator) void {
+        self.func(&self.tester, alloc);
+    }
+};
+
 pub fn main() !void {
-    var gpa = std.heap.DebugAllocator(.{}).init;
-    const alloc = gpa.allocator();
+    const alloc = std.heap.page_allocator;
 
     std.debug.print("Calibrating...\n", .{});
     const cpu_freq = try clock.estimateCpuFreq(500);
@@ -18,6 +27,24 @@ pub fn main() !void {
 
     var arena = std.heap.ArenaAllocator.init(alloc);
     defer arena.deinit();
+
+    var cases = [_]Case{
+        .{
+            .name = "json_reader buffered 4096",
+            .tester = try Tester.init(cpu_freq, seconds_to_try),
+            .func = &caseReadBuffered4096,
+        },
+        .{
+            .name = "json_reader buffered 16384",
+            .tester = try Tester.init(cpu_freq, seconds_to_try),
+            .func = &caseReadBuffered16384,
+        },
+        .{
+            .name = "json_reader read whole file first",
+            .tester = try Tester.init(cpu_freq, seconds_to_try),
+            .func = &caseReadFullFile,
+        },
+    };
 
     for (0..10) |i| {
         const alloc_for_this_loop = blk: {
@@ -30,23 +57,27 @@ pub fn main() !void {
                 break :blk alloc;
             }
         };
-        // try testReaderBufferSize(2048, alloc_for_this_loop, cpu_freq);
-        try testReaderBufferSize(4096, alloc_for_this_loop, cpu_freq);
-        // try testReaderBufferSize(8192, alloc_for_this_loop, cpu_freq);
-        try testReaderBufferSize(16384, alloc_for_this_loop, cpu_freq);
-        // try testReaderBufferSize(32768, alloc_for_this_loop, cpu_freq);
-        try testReaderBufferFullFile(alloc_for_this_loop, cpu_freq);
+
+        for (0..cases.len) |j| {
+            std.debug.print("{s}\n", .{cases[j].name});
+            cases[j].run(alloc_for_this_loop);
+        }
     }
 }
 
-fn testReaderBufferSize(
-    size: comptime_int,
-    alloc: std.mem.Allocator,
-    cpu_freq: u64,
-) !void {
-    var tester = try Tester.init(cpu_freq, seconds_to_try);
+fn caseReadBuffered4096(tester: *Tester, alloc: std.mem.Allocator) void {
+    testReadBuffered(4096, tester, alloc) catch @panic("wtf?");
+}
 
-    std.debug.print("json_reader buffer size {d}\n", .{size});
+fn caseReadBuffered16384(tester: *Tester, alloc: std.mem.Allocator) void {
+    testReadBuffered(16384, tester, alloc) catch @panic("wtf?");
+}
+
+fn caseReadFullFile(tester: *Tester, alloc: std.mem.Allocator) void {
+    testReaderBufferFullFile(tester, alloc) catch @panic("wtf?");
+}
+
+fn testReadBuffered(size: comptime_int, tester: *Tester, alloc: std.mem.Allocator) !void {
     tester.restart();
     while (tester.continueTesting()) {
         var timer = try tester.beginTime();
@@ -66,13 +97,7 @@ fn testReaderBufferSize(
     }
 }
 
-fn testReaderBufferFullFile(
-    alloc: std.mem.Allocator,
-    cpu_freq: u64,
-) !void {
-    var tester = try Tester.init(cpu_freq, seconds_to_try);
-
-    std.debug.print("json_reader read whole file first\n", .{});
+fn testReaderBufferFullFile(tester: *Tester, alloc: std.mem.Allocator) !void {
     tester.restart();
     while (tester.continueTesting()) {
         var timer = try tester.beginTime();

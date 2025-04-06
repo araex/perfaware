@@ -2,6 +2,7 @@ const std = @import("std");
 
 const platform = @import("util").platform;
 
+const forward = true;
 const assumed_page_size = 4096;
 const page_count = 4096;
 
@@ -19,8 +20,8 @@ pub fn main() !void {
 
         const page_faults_start = try platform.readPageFaultCount();
         for (0..data.len) |j| {
-            data[j] = @truncate(@mod(j, @sizeOf(u8)));
-            // data[data.len - 1 - j] = @truncate(@mod(j, @sizeOf(u8)));
+            const idx = if (forward) j else (data.len - 1 - j);
+            data[idx] = @truncate(@mod(j, @sizeOf(u8)));
         }
         const page_faults_end = try platform.readPageFaultCount();
 
