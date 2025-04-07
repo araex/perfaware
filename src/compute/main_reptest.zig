@@ -142,7 +142,7 @@ fn testWriteToAllBytes(tester: *Tester, alloc: std.mem.Allocator, n: usize, forw
 
         for (0..data.len) |i| {
             const idx = if (forward) i else (data.len - 1 - i);
-            data[idx] = @truncate(@mod(i, @sizeOf(u8)));
+            data[idx] = @truncate(i);
         }
 
         tester.countBytes(n);

@@ -32,10 +32,24 @@
             }
         },
         {
-            "label": "pagefault testing",
+            "label": "sandbox",
             "type": "shell",
-            "command": "zig build pagefault > ${workspaceFolder}/pagefaults.csv",
+            "command": "zig build sandbox --release=safe",
             "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "sandbox debug",
+            "type": "shell",
+            "command": "..\\raddbg\\raddbg.exe",
+            "args": [],
+            "group": "build",
+            "dependsOn": [
+                "sandbox"
+            ],
             "presentation": {
                 "reveal": "always",
                 "panel": "shared"
@@ -51,30 +65,5 @@
                 "panel": "dedicated"
             }
         },
-        {
-            "label": "build dbg",
-            "type": "shell",
-            "command": "zig build compute",
-            "group": "none",
-            "hide": true,
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared"
-            }
-        },
-        {
-            "label": "debug",
-            "type": "shell",
-            "command": "..\\raddbg\\raddbg.exe",
-            "args": [],
-            "group": "build",
-            "dependsOn": [
-                "build dbg"
-            ],
-            "presentation": {
-                "reveal": "always",
-                "panel": "shared"
-            }
-        }
     ],
 }
