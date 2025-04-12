@@ -2,3 +2,5 @@
 zig-out
 haversine_pairs_*
 pagefaults.csv
+*.lib
+*.obj

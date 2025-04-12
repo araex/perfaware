@@ -70,7 +70,16 @@ pub fn build(b: *std.Build) void {
     const reptest_run_step = b.step("reptest", "Build & run the repetition test exe");
     reptest_run_step.dependOn(&reptest_run.step);
 
-    // Repetition test executable
+    //
+    const build_asm_lib = b.addSystemCommand(&[_][]const u8{
+        "powershell.exe",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "src/sandbox/asm/build_lib.ps1",
+    });
+
+    // Sandbox test executable
     const sandbox_mod = b.createModule(.{
         .root_source_file = b.path("src/sandbox/main.zig"),
         .target = target,
@@ -82,6 +91,9 @@ pub fn build(b: *std.Build) void {
         .name = "sandbox",
         .root_module = sandbox_mod,
     });
+    sandbox_exe.step.dependOn(&build_asm_lib.step);
+    sandbox_exe.addLibraryPath(b.path("src/sandbox/asm"));
+    sandbox_exe.linkSystemLibrary("listing_0132_nop_loop");
     b.installArtifact(sandbox_exe);
     const sandbox_run = b.addRunArtifact(sandbox_exe);
     if (b.args) |args| {

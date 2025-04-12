@@ -8,6 +8,26 @@ const RepititionTester = @This();
 pub const Result = struct {
     fastest_run: ?Run = null,
     slowest_run: ?Run = null,
+
+    // Add tracking for average calculation
+    total_cpu_time: u64 = 0,
+    total_page_faults: u64 = 0,
+    total_byte_count: u64 = 0,
+    run_count: u32 = 0,
+
+    // Function to get the average run
+    pub fn getAverageRun(self: @This(), cpu_freq: u64) ?Run {
+        if (self.run_count == 0) return null;
+
+        return Run{
+            .cpu_freq = cpu_freq,
+            .cpu_time = self.total_cpu_time / self.run_count,
+            .page_faults = @intCast(self.total_page_faults / self.run_count),
+            .byte_count = self.total_byte_count / self.run_count,
+            .begin_time_calls = 1,
+            .end_time_calls = 1,
+        };
+    }
 };
 
 const Run = struct {
@@ -28,7 +48,7 @@ const Run = struct {
         _ = options;
 
         const millis = clock.toMilliseconds(self.cpu_time, self.cpu_freq);
-        try writer.print("{d:.2}ms", .{millis});
+        try writer.print("{d} ({d:.2}ms)", .{ self.cpu_time, millis });
         if (self.byte_count > 0) {
             const kb = @as(f64, @floatFromInt(self.byte_count)) / 1024.0;
             const mb = kb / 1024.0;
@@ -98,11 +118,19 @@ pub fn continueTesting(self: *@This()) bool {
             if (is_first_iteration) {
                 self.result.fastest_run = last_run;
                 self.result.slowest_run = last_run;
+
+                // Initialize average tracking with first run
+                self.result.total_cpu_time += last_run.cpu_time;
+                self.result.total_page_faults += last_run.page_faults;
+                self.result.total_byte_count += last_run.byte_count;
+                self.result.run_count += 1;
+
                 return true;
             }
 
-            const fastest = self.result.slowest_run orelse unreachable;
-            const slowest = self.result.fastest_run orelse unreachable;
+            // Fix naming to be consistent with what the variables represent
+            const fastest = self.result.fastest_run orelse unreachable;
+            const slowest = self.result.slowest_run orelse unreachable;
             std.debug.assert(fastest.byte_count == slowest.byte_count);
 
             if (last_run.byte_count != fastest.byte_count) {
@@ -111,6 +139,8 @@ pub fn continueTesting(self: *@This()) bool {
             }
 
             const now = std.time.Instant.now() catch unreachable;
+
+            // Correct comparison logic: smallest time is fastest, largest time is slowest
             if (last_run.cpu_time > slowest.cpu_time) {
                 self.result.slowest_run = last_run;
             } else if (last_run.cpu_time < fastest.cpu_time) {
@@ -118,6 +148,12 @@ pub fn continueTesting(self: *@This()) bool {
                 self.start_time = now;
                 self.updateMinPrint();
             }
+
+            // Update average tracking
+            self.result.total_cpu_time += last_run.cpu_time;
+            self.result.total_page_faults += last_run.page_faults;
+            self.result.total_byte_count += last_run.byte_count;
+            self.result.run_count += 1;
 
             if (now.since(self.start_time) / std.time.ns_per_s > self.try_for_s) {
                 self.state = .done;
@@ -159,12 +195,13 @@ pub fn countBytes(self: *@This(), byte_count: u64) void {
 }
 
 fn updateMinPrint(self: @This()) void {
-    std.debug.print("                                                                \r", .{});
+    std.debug.print("\r                                                                                \r", .{});
     std.debug.print(" Min: {any}", .{self.result.fastest_run});
 }
 
 fn printResults(self: @This()) void {
-    std.debug.print("                                                                \r", .{});
+    std.debug.print("\r                                                                                \r", .{});
     std.debug.print(" Min: {any}\n", .{self.result.fastest_run});
     std.debug.print(" Max: {any}\n", .{self.result.slowest_run});
+    std.debug.print(" Avg: {any}\n", .{self.result.getAverageRun(self.cpu_freq)});
 }

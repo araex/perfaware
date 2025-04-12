@@ -1,7 +1,11 @@
 const std = @import("std");
 
+const clock = @import("util").clock;
 const platform = @import("util").platform;
+const RepTester = @import("util").RepetitionTester;
 const x64 = @import("util").x64;
+
+const manual_asm = @import("asm.zig");
 
 pub noinline fn main() !void {
     var gpa = std.heap.DebugAllocator(.{}).init;
@@ -11,7 +15,7 @@ pub noinline fn main() !void {
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
 
-    var rng = std.Random.DefaultPrng.init(42);
+    // var rng = std.Random.DefaultPrng.init(42);
 
     if (args.len == 2) {
         const command = args[1];
@@ -19,18 +23,77 @@ pub noinline fn main() !void {
             try pagefault();
             return;
         }
-    }
+        if (std.mem.eql(u8, command, "bytes")) {
+            const data = try alloc.alloc(u8, 1024 * 1024 * 1024);
+            defer alloc.free(data);
 
-    {
-        var data = [_]u8{0} ** (1024 * 1024);
-        writeAllBytes(&data);
-        std.debug.print("{any}\n", .{data[rng.random().intRangeAtMost(usize, 0, data.len - 1)]});
+            try writeAllBytes(data);
+            // Make sure the whole thing is not optimized away
+            // std.debug.print("{any}\n", .{data[rng.random().intRangeAtMost(usize, 0, data.len - 1)]});
+        }
     }
 }
 
-noinline fn writeAllBytes(data: []u8) void {
-    for (0..data.len) |i| {
-        data[i] = @truncate(i);
+fn writeAllBytes(data: []u8) !void {
+    std.debug.print("Calibrating...\n", .{});
+    const cpu_freq = try clock.estimateCpuFreq(500);
+    std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
+
+    std.debug.print("Write all bytes: zig loop\n", .{});
+    var tester_zig_loop = try RepTester.init(cpu_freq, 10);
+    while (tester_zig_loop.continueTesting()) {
+        var timer = try tester_zig_loop.beginTime();
+
+        for (0..data.len) |i| {
+            data[i] = @truncate(i);
+        }
+
+        tester_zig_loop.countBytes(data.len);
+        try timer.end();
+    }
+
+    std.debug.print("MOV all bytes: asm loop\n", .{});
+    var tester_asm_mov = try RepTester.init(cpu_freq, 10);
+    while (tester_asm_mov.continueTesting()) {
+        var timer = try tester_asm_mov.beginTime();
+
+        manual_asm.MOVAllBytesASM(data.len, data.ptr);
+
+        tester_asm_mov.countBytes(data.len);
+        try timer.end();
+    }
+
+    std.debug.print("NOP all bytes: asm loop\n", .{});
+    var tester_asm_nop = try RepTester.init(cpu_freq, 10);
+    while (tester_asm_nop.continueTesting()) {
+        var timer = try tester_asm_nop.beginTime();
+
+        manual_asm.NOPAllBytesASM(data.len);
+
+        tester_asm_nop.countBytes(data.len);
+        try timer.end();
+    }
+
+    std.debug.print("CMP all bytes: asm loop\n", .{});
+    var tester_asm_cmp = try RepTester.init(cpu_freq, 10);
+    while (tester_asm_cmp.continueTesting()) {
+        var timer = try tester_asm_cmp.beginTime();
+
+        manual_asm.CMPAllBytesASM(data.len);
+
+        tester_asm_cmp.countBytes(data.len);
+        try timer.end();
+    }
+
+    std.debug.print("DEC all bytes: asm loop\n", .{});
+    var tester_asm_dec = try RepTester.init(cpu_freq, 10);
+    while (tester_asm_dec.continueTesting()) {
+        var timer = try tester_asm_dec.beginTime();
+
+        manual_asm.DECAllBytesASM(data.len);
+
+        tester_asm_dec.countBytes(data.len);
+        try timer.end();
     }
 }
 
