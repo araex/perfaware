@@ -41,6 +41,12 @@ pub noinline fn main() !void {
 
             try writeUnroll(data);
         }
+        if (std.mem.eql(u8, command, "read-width")) {
+            const data = try alloc.alloc(u8, 1024 * 1024 * 1024);
+            defer alloc.free(data);
+
+            try readWidth(data);
+        }
     }
 }
 
@@ -53,7 +59,7 @@ fn benchmarkFunction(
     args: anytype,
 ) !void {
     std.debug.print("{s}\n", .{name});
-    var tester = try RepTester.init(cpu_freq, 5);
+    var tester = try RepTester.init(cpu_freq, 10);
     while (tester.continueTesting()) {
         var timer = try tester.beginTime();
 
@@ -62,6 +68,56 @@ fn benchmarkFunction(
         tester.countBytes(byte_count);
         try timer.end();
     }
+}
+
+fn readWidth(data: []const u8) !void {
+    std.debug.print("Calibrating...\n", .{});
+    const cpu_freq = try clock.estimateCpuFreq(500);
+    std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
+
+    try benchmarkFunction(
+        "Read_4x3",
+        cpu_freq,
+        data.len,
+        manual_asm.Read_4x3,
+        .{ data.len, data.ptr },
+    );
+
+    try benchmarkFunction(
+        "Read_8x3",
+        cpu_freq,
+        data.len,
+        manual_asm.Read_8x3,
+        .{ data.len, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_16x2",
+        cpu_freq,
+        data.len,
+        manual_asm.Read_16x2,
+        .{ data.len, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_16x3",
+        cpu_freq,
+        data.len,
+        manual_asm.Read_16x3,
+        .{ data.len, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_32x2",
+        cpu_freq,
+        data.len,
+        manual_asm.Read_32x2,
+        .{ data.len, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_32x3",
+        cpu_freq,
+        data.len,
+        manual_asm.Read_32x3,
+        .{ data.len, data.ptr },
+    );
 }
 
 fn writeUnroll(data: []const u8) !void {
