@@ -23,15 +23,133 @@ pub noinline fn main() !void {
             try pagefault();
             return;
         }
-        if (std.mem.eql(u8, command, "bytes")) {
+        if (std.mem.eql(u8, command, "write-bytes")) {
             const data = try alloc.alloc(u8, 1024 * 1024 * 1024);
             defer alloc.free(data);
 
             try writeAllBytes(data);
-            // Make sure the whole thing is not optimized away
-            // std.debug.print("{any}\n", .{data[rng.random().intRangeAtMost(usize, 0, data.len - 1)]});
+        }
+        if (std.mem.eql(u8, command, "read-unroll")) {
+            const data = try alloc.alloc(u8, 4096);
+            defer alloc.free(data);
+
+            try readUnroll(data);
+        }
+        if (std.mem.eql(u8, command, "write-unroll")) {
+            const data = try alloc.alloc(u8, 4096);
+            defer alloc.free(data);
+
+            try writeUnroll(data);
         }
     }
+}
+
+// Helper for benchmarking functions with same signature pattern
+fn benchmarkFunction(
+    comptime name: []const u8,
+    cpu_freq: u64,
+    byte_count: u64,
+    func: anytype,
+    args: anytype,
+) !void {
+    std.debug.print("{s}\n", .{name});
+    var tester = try RepTester.init(cpu_freq, 5);
+    while (tester.continueTesting()) {
+        var timer = try tester.beginTime();
+
+        @call(.auto, func, args);
+
+        tester.countBytes(byte_count);
+        try timer.end();
+    }
+}
+
+fn writeUnroll(data: []const u8) !void {
+    std.debug.print("Calibrating...\n", .{});
+    const cpu_freq = try clock.estimateCpuFreq(500);
+    std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
+
+    const repeat_count = 1024 * 1024 * 1024;
+
+    try benchmarkFunction(
+        "Write_x1",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Write_x1,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Write_x2",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Write_x2,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Write_x3",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Write_x3,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Write_x4",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Write_x4,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Write_x5",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Write_x5,
+        .{ repeat_count, data.ptr },
+    );
+}
+
+fn readUnroll(data: []const u8) !void {
+    std.debug.print("Calibrating...\n", .{});
+    const cpu_freq = try clock.estimateCpuFreq(500);
+    std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
+
+    const repeat_count = 1024 * 1024 * 1024;
+
+    try benchmarkFunction(
+        "Read_x1",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x1,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_x2",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x2,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_x3",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x3,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_x4",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x4,
+        .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_x5",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x5,
+        .{ repeat_count, data.ptr },
+    );
 }
 
 fn writeAllBytes(data: []u8) !void {
@@ -39,6 +157,7 @@ fn writeAllBytes(data: []u8) !void {
     const cpu_freq = try clock.estimateCpuFreq(500);
     std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
 
+    // Benchmark Zig loop manually since it has a unique implementation
     std.debug.print("Write all bytes: zig loop\n", .{});
     var tester_zig_loop = try RepTester.init(cpu_freq, 10);
     while (tester_zig_loop.continueTesting()) {
@@ -52,49 +171,34 @@ fn writeAllBytes(data: []u8) !void {
         try timer.end();
     }
 
-    std.debug.print("MOV all bytes: asm loop\n", .{});
-    var tester_asm_mov = try RepTester.init(cpu_freq, 10);
-    while (tester_asm_mov.continueTesting()) {
-        var timer = try tester_asm_mov.beginTime();
-
-        manual_asm.MOVAllBytesASM(data.len, data.ptr);
-
-        tester_asm_mov.countBytes(data.len);
-        try timer.end();
-    }
-
-    std.debug.print("NOP all bytes: asm loop\n", .{});
-    var tester_asm_nop = try RepTester.init(cpu_freq, 10);
-    while (tester_asm_nop.continueTesting()) {
-        var timer = try tester_asm_nop.beginTime();
-
-        manual_asm.NOPAllBytesASM(data.len);
-
-        tester_asm_nop.countBytes(data.len);
-        try timer.end();
-    }
-
-    std.debug.print("CMP all bytes: asm loop\n", .{});
-    var tester_asm_cmp = try RepTester.init(cpu_freq, 10);
-    while (tester_asm_cmp.continueTesting()) {
-        var timer = try tester_asm_cmp.beginTime();
-
-        manual_asm.CMPAllBytesASM(data.len);
-
-        tester_asm_cmp.countBytes(data.len);
-        try timer.end();
-    }
-
-    std.debug.print("DEC all bytes: asm loop\n", .{});
-    var tester_asm_dec = try RepTester.init(cpu_freq, 10);
-    while (tester_asm_dec.continueTesting()) {
-        var timer = try tester_asm_dec.beginTime();
-
-        manual_asm.DECAllBytesASM(data.len);
-
-        tester_asm_dec.countBytes(data.len);
-        try timer.end();
-    }
+    try benchmarkFunction(
+        "MOV all bytes: asm loop",
+        cpu_freq,
+        data.len,
+        manual_asm.MOVAllBytesASM,
+        .{ data.len, data.ptr },
+    );
+    try benchmarkFunction(
+        "NOP all bytes: asm loop",
+        cpu_freq,
+        data.len,
+        manual_asm.NOPAllBytesASM,
+        .{data.len},
+    );
+    try benchmarkFunction(
+        "CMP all bytes: asm loop",
+        cpu_freq,
+        data.len,
+        manual_asm.CMPAllBytesASM,
+        .{data.len},
+    );
+    try benchmarkFunction(
+        "DEC all bytes: asm loop",
+        cpu_freq,
+        data.len,
+        manual_asm.DECAllBytesASM,
+        .{data.len},
+    );
 }
 
 fn pagefault() !void {

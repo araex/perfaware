@@ -7,16 +7,8 @@ Write-Host "Script directory: $scriptDir"
 # Change to script directory
 Push-Location $scriptDir
 try {
-    # Define paths with full path
-    $asmFile = Join-Path $scriptDir "listing_0132_nop_loop.asm"
-    $objFile = [System.IO.Path]::ChangeExtension($asmFile, ".obj")
-    $libFile = [System.IO.Path]::ChangeExtension($asmFile, ".lib")
-
-    # Check if the ASM file exists
-    if (-not (Test-Path $asmFile)) {
-        Write-Error "Assembly file not found: $asmFile"
-        exit 1
-    }
+    # Define the output library file - we'll use a common name for all ASM files
+    $libFile = Join-Path $scriptDir "asm_functions.lib"
 
     # Check if NASM is in PATH
     try {
@@ -77,24 +69,56 @@ try {
         }
     }
 
-    # Assemble the ASM file to an object file
-    Write-Host "Assembling $asmFile to $objFile..."
-    nasm -f win64 $asmFile -o $objFile
-
-    if (-not (Test-Path $objFile)) {
-        Write-Error "Failed to create object file: $objFile"
+    # Find all ASM files in the current directory
+    $asmFiles = Get-ChildItem -Path $scriptDir -Filter "*.asm" | Select-Object -ExpandProperty FullName
+    
+    if ($asmFiles.Count -eq 0) {
+        Write-Error "No .asm files found in $scriptDir"
         exit 1
     }
-
-    # Create the library file from the object file
-    Write-Host "Creating library $libFile from $objFile..."
-    lib /nologo /out:$libFile $objFile
-
+    
+    Write-Host "Found $($asmFiles.Count) assembly files to process"
+    
+    # Create a temporary directory for object files
+    $objDir = Join-Path $scriptDir "obj_temp"
+    if (-not (Test-Path $objDir)) {
+        New-Item -Path $objDir -ItemType Directory | Out-Null
+    } else {
+        # Clean up any existing object files
+        Remove-Item -Path (Join-Path $objDir "*.obj") -ErrorAction SilentlyContinue
+    }
+    
+    # Compile each ASM file to an object file
+    $objFiles = @()
+    foreach ($asmFile in $asmFiles) {
+        $asmName = [System.IO.Path]::GetFileNameWithoutExtension($asmFile)
+        $objFile = Join-Path $objDir "$asmName.obj"
+        $objFiles += $objFile
+        
+        Write-Host "Assembling $asmFile to $objFile..."
+        nasm -f win64 $asmFile -o $objFile
+        
+        if (-not (Test-Path $objFile)) {
+            Write-Error "Failed to create object file: $objFile"
+            exit 1
+        }
+    }
+    
+    # Create the library file from all object files
+    Write-Host "Creating library $libFile from $($objFiles.Count) object files..."
+    lib /nologo /out:$libFile $objFiles
+    
     if (Test-Path $libFile) {
         Write-Host "Successfully created library: $libFile"
     } else {
         Write-Error "Failed to create library file: $libFile"
         exit 1
+    }
+    
+    # Clean up temporary object files
+    if (Test-Path $objDir) {
+        Remove-Item -Path $objDir -Recurse -Force
+        Write-Host "Cleaned up temporary object files"
     }
 
     Write-Host "Build completed successfully."

@@ -4,3 +4,5 @@ haversine_pairs_*
 pagefaults.csv
 *.lib
 *.obj
+docs/microarchitecture.pdf
+docs/zen4_optimization_guide.pdf

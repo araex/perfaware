@@ -70,7 +70,7 @@ pub fn build(b: *std.Build) void {
     const reptest_run_step = b.step("reptest", "Build & run the repetition test exe");
     reptest_run_step.dependOn(&reptest_run.step);
 
-    //
+    // Build the consolidated ASM library from all .asm files
     const build_asm_lib = b.addSystemCommand(&[_][]const u8{
         "powershell.exe",
         "-ExecutionPolicy",
@@ -93,7 +93,8 @@ pub fn build(b: *std.Build) void {
     });
     sandbox_exe.step.dependOn(&build_asm_lib.step);
     sandbox_exe.addLibraryPath(b.path("src/sandbox/asm"));
-    sandbox_exe.linkSystemLibrary("listing_0132_nop_loop");
+    // Link against the consolidated ASM library instead of individual libraries
+    sandbox_exe.linkSystemLibrary("asm_functions");
     b.installArtifact(sandbox_exe);
     const sandbox_run = b.addRunArtifact(sandbox_exe);
     if (b.args) |args| {

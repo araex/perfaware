@@ -34,7 +34,7 @@
         {
             "label": "sandbox",
             "type": "shell",
-            "command": "zig build sandbox --release=safe -- bytes",
+            "command": "zig build sandbox --release=safe -- write-unroll",
             "group": "build",
             "presentation": {
                 "reveal": "always",
