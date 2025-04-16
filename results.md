@@ -89,3 +89,49 @@ Read_32x3
  Max: 32733197 (8.86ms), 1024.000MB @ 112.826GB/s, 0 page faults
  Avg: 13416611 (3.63ms), 1024.000MB @ 275.267GB/s, 0 page faults
 ```
+
+## cache-test
+```
+Calibrating...
+ 3693 MHz
+Read from 32KB buffer
+ Min: 13164896 (3.56ms), 1024.000MB @ 280.527GB/s, 0 page faults
+ Max: 14776319 (4.00ms), 1024.000MB @ 249.935GB/s, 0 page faults
+ Avg: 13363121 (3.62ms), 1024.000MB @ 276.366GB/s, 0 page faults
+Read from 64KB buffer
+ Min: 26237810 (7.10ms), 1024.000MB @ 140.755GB/s, 0 page faults
+ Max: 27174687 (7.36ms), 1024.000MB @ 135.903GB/s, 0 page faults
+ Avg: 26443649 (7.16ms), 1024.000MB @ 139.660GB/s, 0 page faults
+Read from 256KB buffer
+ Min: 26106164 (7.07ms), 1024.000MB @ 141.465GB/s, 0 page faults
+ Max: 28239071 (7.65ms), 1024.000MB @ 130.780GB/s, 0 page faults
+ Avg: 26455500 (7.16ms), 1024.000MB @ 139.597GB/s, 0 page faults
+Read from 512KB buffer
+ Min: 27908730 (7.56ms), 1024.000MB @ 132.328GB/s, 0 page faults
+ Max: 36267067 (9.82ms), 1024.000MB @ 101.831GB/s, 0 page faults
+ Avg: 28523643 (7.72ms), 1024.000MB @ 129.476GB/s, 0 page faults
+Read from 1024KB buffer
+ Min: 31575763 (8.55ms), 1024.000MB @ 116.960GB/s, 0 page faults
+ Max: 36719429 (9.94ms), 1024.000MB @ 100.577GB/s, 0 page faults
+ Avg: 32411506 (8.78ms), 1024.000MB @ 113.945GB/s, 0 page faults
+Read from 16384KB buffer
+ Min: 31912981 (8.64ms), 1024.000MB @ 115.725GB/s, 0 page faults
+ Max: 45114063 (12.22ms), 1024.000MB @ 81.862GB/s, 0 page faults
+ Avg: 32829990 (8.89ms), 1024.000MB @ 112.492GB/s, 0 page faults
+Read from 32768KB buffer
+ Min: 73865690 (20.00ms), 1024.000MB @ 49.998GB/s, 0 page faults
+ Max: 118180997 (32.00ms), 1024.000MB @ 31.250GB/s, 0 page faults
+ Avg: 82821814 (22.43ms), 1024.000MB @ 44.591GB/s, 0 page faults
+Read from 65536KB buffer
+ Min: 108855517 (29.48ms), 1024.000MB @ 33.927GB/s, 0 page faults
+ Max: 149652309 (40.52ms), 1024.000MB @ 24.678GB/s, 0 page faults
+ Avg: 115372042 (31.24ms), 1024.000MB @ 32.010GB/s, 0 page faults
+Read from 131072KB buffer
+ Min: 132210213 (35.80ms), 1024.000MB @ 27.934GB/s, 0 page faults
+ Max: 170775128 (46.24ms), 1024.000MB @ 21.626GB/s, 0 page faults
+ Avg: 139851031 (37.87ms), 1024.000MB @ 26.407GB/s, 0 page faults
+Read from 1048576KB buffer
+ Min: 144117886 (39.02ms), 1024.000MB @ 25.626GB/s, 0 page faults
+ Max: 167882764 (45.46ms), 1024.000MB @ 21.998GB/s, 0 page faults
+ Avg: 146158358 (39.58ms), 1024.000MB @ 25.268GB/s, 0 page faults
+```

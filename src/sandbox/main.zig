@@ -8,9 +8,10 @@ const x64 = @import("util").x64;
 const manual_asm = @import("asm.zig");
 
 pub noinline fn main() !void {
-    var gpa = std.heap.DebugAllocator(.{}).init;
-    defer std.debug.assert(gpa.deinit() == .ok);
-    const alloc = gpa.allocator();
+    // var gpa = std.heap.DebugAllocator(.{}).init;
+    // defer std.debug.assert(gpa.deinit() == .ok);
+    // const alloc = gpa.allocator();
+    const alloc = std.heap.page_allocator;
 
     const args = try std.process.argsAlloc(alloc);
     defer std.process.argsFree(alloc, args);
@@ -47,19 +48,25 @@ pub noinline fn main() !void {
 
             try readWidth(data);
         }
+        if (std.mem.eql(u8, command, "cache-test")) {
+            const data = try alloc.alloc(u8, 1024 * 1024 * 1024);
+            defer alloc.free(data);
+
+            try testCache(data);
+        }
     }
 }
 
 // Helper for benchmarking functions with same signature pattern
 fn benchmarkFunction(
-    comptime name: []const u8,
+    name: []const u8,
     cpu_freq: u64,
     byte_count: u64,
     func: anytype,
     args: anytype,
 ) !void {
     std.debug.print("{s}\n", .{name});
-    var tester = try RepTester.init(cpu_freq, 10);
+    var tester = try RepTester.init(cpu_freq, 5);
     while (tester.continueTesting()) {
         var timer = try tester.beginTime();
 
@@ -67,6 +74,43 @@ fn benchmarkFunction(
 
         tester.countBytes(byte_count);
         try timer.end();
+    }
+}
+
+fn testCache(data: []const u8) !void {
+    std.debug.print("Calibrating...\n", .{});
+    const cpu_freq = try clock.estimateCpuFreq(500);
+    std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
+
+    const masks_to_test = [_]usize{
+        // 0x00FFF, // 4k
+        0x00007FFF, // 32k
+        0x0000FFFF, // 64k
+        // 0x0001FFFF, // 128k
+        0x0003FFFF, // 256k
+        0x0007FFFF, // 512k
+        0x000FFFFF, // 1MB
+        // 0x001FFFFF, // 2MB
+        // 0x003FFFFF, // 4MB
+        // 0x007FFFFF, // 8MB
+        0x00FFFFFF, // 16MB
+        0x01FFFFFF, // 32MB
+        0x03FFFFFF, // 64MB
+        0x07FFFFFF, // 128MB
+        // 0x0FFFFFFF, // 256MB
+        // 0x1FFFFFFF, // 512MB
+        0x3FFFFFFF, // 1GB
+    };
+    var print_buf = [_]u8{0} ** 256;
+    for (masks_to_test) |mask| {
+        const kb = @as(f64, @floatFromInt(mask + 1)) / 1024.0;
+        try benchmarkFunction(
+            try std.fmt.bufPrint(&print_buf, "Read from {d}KB buffer", .{kb}),
+            cpu_freq,
+            data.len,
+            manual_asm.Read_32x2_Masked,
+            .{ data.len, data.ptr, mask },
+        );
     }
 }
 
