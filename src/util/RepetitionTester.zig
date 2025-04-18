@@ -54,10 +54,10 @@ const Run = struct {
             const mb = kb / 1024.0;
             const gb = mb / 1024.0;
             const gbps = gb / (millis / 1000.0);
-            try writer.print(", {d:.3}MB @ {d:.3}GB/s, {d} page faults", .{ mb, gbps, self.page_faults });
+            try writer.print(", {d:.3}MB @ {d:.3}GB/s", .{ mb, gbps });
             if (self.page_faults > 0) {
                 const kbppf = kb / @as(f64, @floatFromInt(self.page_faults));
-                try writer.print(" @ {d:.3}KB per page fault", .{kbppf});
+                try writer.print(", {d} page faults @ {d:.3}KB per page fault", .{ self.page_faults, kbppf });
             }
         }
     }

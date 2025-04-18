@@ -23,3 +23,4 @@ pub extern fn Read_32x2(count: usize, data: [*]const u8) void;
 pub extern fn Read_32x3(count: usize, data: [*]const u8) void;
 
 pub extern fn Read_32x2_Masked(count: usize, data: [*]const u8, mask: usize) void;
+pub extern fn Read_32x8_RepCount(rep_count: usize, data: [*]const u8, bytes_per_rep: usize) void;

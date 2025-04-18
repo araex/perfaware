@@ -82,34 +82,30 @@ fn testCache(data: []const u8) !void {
     const cpu_freq = try clock.estimateCpuFreq(500);
     std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
 
-    const masks_to_test = [_]usize{
-        // 0x00FFF, // 4k
-        0x00007FFF, // 32k
-        0x0000FFFF, // 64k
-        // 0x0001FFFF, // 128k
-        0x0003FFFF, // 256k
-        0x0007FFFF, // 512k
-        0x000FFFFF, // 1MB
-        // 0x001FFFFF, // 2MB
-        // 0x003FFFFF, // 4MB
-        // 0x007FFFFF, // 8MB
-        0x00FFFFFF, // 16MB
-        0x01FFFFFF, // 32MB
-        0x03FFFFFF, // 64MB
-        0x07FFFFFF, // 128MB
-        // 0x0FFFFFFF, // 256MB
-        // 0x1FFFFFFF, // 512MB
-        0x3FFFFFFF, // 1GB
+    const sizes_to_test = [_]usize{
+        32 * 1024,
+        64 * 1024,
+        256 * 1024,
+        512 * 1024,
+        1024 * 1024,
+        16 * 1024 * 1024,
+        32 * 1024 * 1024,
+        64 * 1024 * 1024,
+        132 * 1024 * 1024,
+        1024 * 1024 * 1024,
     };
     var print_buf = [_]u8{0} ** 256;
-    for (masks_to_test) |mask| {
-        const kb = @as(f64, @floatFromInt(mask + 1)) / 1024.0;
+    for (sizes_to_test) |read_size| {
+        const kb = @as(f64, @floatFromInt(read_size)) / 1024.0;
+        const rep_count = @divFloor(data.len, read_size);
+        const bytes_read = rep_count * read_size;
+
         try benchmarkFunction(
             try std.fmt.bufPrint(&print_buf, "Read from {d}KB buffer", .{kb}),
             cpu_freq,
-            data.len,
-            manual_asm.Read_32x2_Masked,
-            .{ data.len, data.ptr, mask },
+            bytes_read,
+            manual_asm.Read_32x8_RepCount,
+            .{ rep_count, data.ptr, read_size },
         );
     }
 }
