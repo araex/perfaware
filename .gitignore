@@ -6,3 +6,4 @@ pagefaults.csv
 *.obj
 docs/microarchitecture.pdf
 docs/zen4_optimization_guide.pdf
+cache-test.csv

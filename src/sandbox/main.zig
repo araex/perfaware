@@ -5,6 +5,7 @@ const platform = @import("util").platform;
 const RepTester = @import("util").RepetitionTester;
 const x64 = @import("util").x64;
 
+const cache_testing = @import("cache_testing.zig");
 const manual_asm = @import("asm.zig");
 
 pub noinline fn main() !void {
@@ -52,7 +53,7 @@ pub noinline fn main() !void {
             const data = try alloc.alloc(u8, 1024 * 1024 * 1024);
             defer alloc.free(data);
 
-            try testCache(data);
+            try cache_testing.run(alloc, data);
         }
     }
 }
@@ -74,39 +75,6 @@ fn benchmarkFunction(
 
         tester.countBytes(byte_count);
         try timer.end();
-    }
-}
-
-fn testCache(data: []const u8) !void {
-    std.debug.print("Calibrating...\n", .{});
-    const cpu_freq = try clock.estimateCpuFreq(500);
-    std.debug.print(" {d} MHz\n", .{cpu_freq / (1000 * 1000)});
-
-    const sizes_to_test = [_]usize{
-        32 * 1024,
-        64 * 1024,
-        256 * 1024,
-        512 * 1024,
-        1024 * 1024,
-        16 * 1024 * 1024,
-        32 * 1024 * 1024,
-        64 * 1024 * 1024,
-        132 * 1024 * 1024,
-        1024 * 1024 * 1024,
-    };
-    var print_buf = [_]u8{0} ** 256;
-    for (sizes_to_test) |read_size| {
-        const kb = @as(f64, @floatFromInt(read_size)) / 1024.0;
-        const rep_count = @divFloor(data.len, read_size);
-        const bytes_read = rep_count * read_size;
-
-        try benchmarkFunction(
-            try std.fmt.bufPrint(&print_buf, "Read from {d}KB buffer", .{kb}),
-            cpu_freq,
-            bytes_read,
-            manual_asm.Read_32x8_RepCount,
-            .{ rep_count, data.ptr, read_size },
-        );
     }
 }
 

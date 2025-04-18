@@ -8,6 +8,9 @@ Agner Fog's [microarchitecture.pdf](https://www.agner.org/optimize/microarchitec
 
 Only reference for 2 load / cycle with 128 & 256 bit registers i could find is an [AMD Slide](https://images.anandtech.com/doci/16214/Zen3_arch_17.jpg), but it only mentions slowdown for 256b.
 
+## cache-test
+![results](docs/cache_ryzen_5900x.png)
+
 ## read-unroll
 ```
 Calibrating...

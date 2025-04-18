@@ -34,7 +34,7 @@
         {
             "label": "sandbox",
             "type": "shell",
-            "command": "zig build sandbox --release=safe -- cache-test",
+            "command": "zig build sandbox -- cache-test",
             "group": "build",
             "presentation": {
                 "reveal": "always",
