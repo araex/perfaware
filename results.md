@@ -16,25 +16,33 @@ Only reference for 2 load / cycle with 128 & 256 bit registers i could find is a
 Calibrating...
  3693 MHz
 Read_x1
- Min: 823831270 (223.07ms), 1024.000MB @ 4.483GB/s, 0 page faults
- Max: 864773398 (234.16ms), 1024.000MB @ 4.271GB/s, 0 page faults
- Avg: 835174511 (226.14ms), 1024.000MB @ 4.422GB/s, 0 page faults
+ Min: 819589701 (221.92ms), 1024.000MiB @ 4.506GiB/s
+ Max: 849021486 (229.89ms), 1024.000MiB @ 4.350GiB/s
+ Avg: 824533355 (223.26ms), 1024.000MiB @ 4.479GiB/s
+Read_x1 unaligned
+ Min: 825003948 (223.39ms), 1024.000MiB @ 4.476GiB/s
+ Max: 846906098 (229.32ms), 1024.000MiB @ 4.361GiB/s
+ Avg: 828374786 (224.30ms), 1024.000MiB @ 4.458GiB/s
 Read_x2
- Min: 414057787 (112.12ms), 1024.000MB @ 8.919GB/s, 0 page faults
- Max: 439268958 (118.94ms), 1024.000MB @ 8.407GB/s, 0 page faults
- Avg: 418791920 (113.40ms), 1024.000MB @ 8.819GB/s, 0 page faults
+ Min: 412430416 (111.68ms), 1024.000MiB @ 8.955GiB/s
+ Max: 424811763 (115.03ms), 1024.000MiB @ 8.694GiB/s
+ Avg: 414705760 (112.29ms), 1024.000MiB @ 8.905GiB/s
 Read_x3
- Min: 276753154 (74.94ms), 1024.000MB @ 13.345GB/s, 0 page faults
- Max: 299212488 (81.02ms), 1024.000MB @ 12.343GB/s, 0 page faults
- Avg: 279271158 (75.62ms), 1024.000MB @ 13.224GB/s, 0 page faults
+ Min: 275976710 (74.73ms), 1024.000MiB @ 13.382GiB/s
+ Max: 295710956 (80.07ms), 1024.000MiB @ 12.489GiB/s
+ Avg: 278222241 (75.34ms), 1024.000MiB @ 13.274GiB/s
+Read_x3 unaligned
+ Min: 554807267 (150.23ms), 1024.000MiB @ 6.657GiB/s
+ Max: 563375122 (152.55ms), 1024.000MiB @ 6.555GiB/s
+ Avg: 555570093 (150.43ms), 1024.000MiB @ 6.647GiB/s
 Read_x4
- Min: 277539035 (75.15ms), 1024.000MB @ 13.307GB/s, 0 page faults
- Max: 301044579 (81.51ms), 1024.000MB @ 12.268GB/s, 0 page faults
- Avg: 281265600 (76.16ms), 1024.000MB @ 13.130GB/s, 0 page faults
+ Min: 276606709 (74.90ms), 1024.000MiB @ 13.352GiB/s
+ Max: 304651377 (82.49ms), 1024.000MiB @ 12.122GiB/s
+ Avg: 277954456 (75.26ms), 1024.000MiB @ 13.287GiB/s
 Read_x5
- Min: 277589873 (75.16ms), 1024.000MB @ 13.304GB/s, 0 page faults
- Max: 301119172 (81.53ms), 1024.000MB @ 12.265GB/s, 0 page faults
- Avg: 281420154 (76.20ms), 1024.000MB @ 13.123GB/s, 0 page faults
+ Min: 276804955 (74.95ms), 1024.000MiB @ 13.342GiB/s
+ Max: 307507148 (83.26ms), 1024.000MiB @ 12.010GiB/s
+ Avg: 279118834 (75.58ms), 1024.000MiB @ 13.231GiB/s
 ```
 
 ## write-unroll

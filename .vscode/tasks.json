@@ -34,7 +34,7 @@
         {
             "label": "sandbox",
             "type": "shell",
-            "command": "zig build sandbox -- cache-test",
+            "command": "zig build sandbox -- read-unroll",
             "group": "build",
             "presentation": {
                 "reveal": "always",

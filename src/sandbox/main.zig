@@ -187,6 +187,13 @@ fn readUnroll(data: []const u8) !void {
         .{ repeat_count, data.ptr },
     );
     try benchmarkFunction(
+        "Read_x1 unaligned",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x1,
+        .{ repeat_count, data.ptr + 62 },
+    );
+    try benchmarkFunction(
         "Read_x2",
         cpu_freq,
         repeat_count,
@@ -199,6 +206,13 @@ fn readUnroll(data: []const u8) !void {
         repeat_count,
         manual_asm.Read_x3,
         .{ repeat_count, data.ptr },
+    );
+    try benchmarkFunction(
+        "Read_x3 unaligned",
+        cpu_freq,
+        repeat_count,
+        manual_asm.Read_x3,
+        .{ repeat_count, data.ptr + 62 },
     );
     try benchmarkFunction(
         "Read_x4",
